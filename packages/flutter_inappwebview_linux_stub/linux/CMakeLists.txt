@@ -4,7 +4,7 @@ project(flutter_inappwebview_linux_plugin LANGUAGES CXX)
 set(PLUGIN_NAME "flutter_inappwebview_linux_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
-  "flutter_inappwebview_linux_plugin.cc"
+  "in_app_web_view_linux_plugin.cc"
 )
 
 apply_standard_settings(${PLUGIN_NAME})
