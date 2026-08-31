@@ -27,7 +27,7 @@ jobs:
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev || true
+            libwebkit2gtk-4.1-dev libsecret-1-dev libjsoncpp-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -120,7 +120,10 @@ jobs:
           sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "-";/g' macos/Runner.xcodeproj/project.pbxproj
 
       - name: Build macOS Release
-        run: flutter build macos --release --dart-define-from-file=tool/dart_defines/custom.json
+        env:
+          CFLAGS: "-DOPENSSL_NO_ASM=1"
+          CXXFLAGS: "-DOPENSSL_NO_ASM=1"
+        run: flutter build macos --release --target-platform darwin-arm64 --dart-define-from-file=tool/dart_defines/custom.json
 
       - name: Package macOS Artifact
         run: |
