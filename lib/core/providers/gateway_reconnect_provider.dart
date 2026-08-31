@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fluxer_app/core/providers/active_instance_provider.dart';
 import 'package:fluxer_app/core/providers/app_ui_lifecycle_provider.dart';
 import 'package:fluxer_app/core/providers/gateway_connection_provider.dart';
 import 'package:fluxer_app/core/router/fluxer_router.dart';
@@ -365,6 +366,16 @@ void gatewayReconnectBannerListener(Ref ref) {
     return state == GatewayState.connecting ||
         state == GatewayState.reconnecting;
   }
+
+  // Diagnostic logging: the SDK itself is silent, so trace every state
+  // transition (and the resolved endpoint) to make gateway issues visible.
+  final String? gatewayEndpoint = ref.watch(activeInstanceGatewayUrlProvider);
+  talker.info(
+    '[Gateway] endpoint: ${gatewayEndpoint ?? '(sdk fallback from api base)'}',
+  );
+  connection.stateChanges.listen((GatewayState state) {
+    talker.info('[Gateway] state -> ${state.name}');
+  });
 
   ref.listen<bool>(gatewayConnectionFailedProvider, (
     bool? previous,
