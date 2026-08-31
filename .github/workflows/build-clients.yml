@@ -123,11 +123,6 @@ jobs:
           sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "-";/g' macos/Runner.xcodeproj/project.pbxproj
 
       - name: Build macOS Release
-        env:
-          CFLAGS: "-DOPENSSL_NO_ASM=1"
-          CXXFLAGS: "-DOPENSSL_NO_ASM=1"
-          ARCHS: "arm64"
-          ONLY_ACTIVE_ARCH: "YES"
         run: flutter build macos --release --dart-define-from-file=tool/dart_defines/custom.json
 
       - name: Package macOS Artifact

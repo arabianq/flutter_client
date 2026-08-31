@@ -1,3 +1,7 @@
 #include "../../Flutter/Flutter-Release.xcconfig"
 #include "AppInfo.xcconfig"
 #include "Warnings.xcconfig"
+
+// arm64-only: webcrypto 0.6.1 fails to link its x86_64 slice on Apple Silicon
+// (undefined fiat_p256_adx_mul/_sqr), and Intel macs are not supported.
+EXCLUDED_ARCHS[sdk=macosx*] = x86_64

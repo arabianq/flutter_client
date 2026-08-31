@@ -1,3 +1,6 @@
 #include "../../Flutter/Flutter-Debug.xcconfig"
 #include "AppInfo.xcconfig"
 #include "Warnings.xcconfig"
+
+// arm64-only, see Release.xcconfig
+EXCLUDED_ARCHS[sdk=macosx*] = x86_64
