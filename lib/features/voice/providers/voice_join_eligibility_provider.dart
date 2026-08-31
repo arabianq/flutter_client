@@ -254,6 +254,12 @@ Future<VoiceJoinEligibility> voiceJoinEligibility(
   if (channelContext == null) {
     return const VoiceJoinEligibility(canJoin: false);
   }
+  // The provider is autoDispose: it can be disposed while the database read
+  // above is in flight (e.g. the join sheet closed). Using `ref` afterwards
+  // throws "Cannot use the Ref ... after it has been disposed".
+  if (!ref.mounted) {
+    return const VoiceJoinEligibility(canJoin: false);
+  }
   final String guildId = channelContext.guildId;
   final UserSettingsViewState settings = ref.watch(
     userSettingsViewModelProvider,
@@ -304,6 +310,9 @@ Future<VoiceJoinEligibility> readVoiceJoinEligibility(
       guildId,
     );
     timeoutUntil = member?.communicationDisabledUntil;
+    if (!ref.mounted) {
+      return const VoiceJoinEligibility(canJoin: false);
+    }
   }
   String? ownerId;
   if (guildId.isNotEmpty) {
