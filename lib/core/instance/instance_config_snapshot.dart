@@ -46,9 +46,17 @@ class InstanceConfigSnapshot {
   factory InstanceConfigSnapshot.fromJson(String json) {
     final Map<String, dynamic> map = jsonDecode(json) as Map<String, dynamic>;
     final Object? wellKnownJson = map['well_known'];
+    final String apiBaseUrl = map['api_base_url'] as String;
+    // Snapshots persisted by older builds may miss the gateway URL (it used
+    // to be resolved lazily by swapping an `api.` host prefix, which never
+    // matches self-hosted single-domain instances). Derive it so restored
+    // sessions still reach the gateway.
+    final String gatewayUrl = (map['gateway_url'] as String? ?? '').trim();
     return InstanceConfigSnapshot(
-      apiBaseUrl: map['api_base_url'] as String,
-      gatewayUrl: map['gateway_url'] as String? ?? '',
+      apiBaseUrl: apiBaseUrl,
+      gatewayUrl: gatewayUrl.isNotEmpty
+          ? gatewayUrl
+          : const InstanceEndpointNormalizer().deriveGatewayUrl(apiBaseUrl),
       displayDomain: map['display_domain'] as String,
       wellKnown: wellKnownJson is Map<String, Object?>
           ? WellKnownFluxerResponse.fromJson(wellKnownJson)

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:fluxer_app/core/database/fluxer_database.dart';
 import 'package:fluxer_app/core/instance/instance_config_snapshot.dart';
 import 'package:fluxer_app/core/instance/instance_discovery_service.dart';
@@ -9,6 +10,8 @@ part 'active_instance_provider.g.dart';
 
 // ignore: do_not_use_environment -- compile-time override for the API base URL
 const _kFluxerBaseUrl = String.fromEnvironment('FLUXER_BASE_URL');
+// ignore: do_not_use_environment -- compile-time override for the gateway URL
+const _kFluxerGatewayUrl = String.fromEnvironment('FLUXER_GATEWAY_URL');
 
 @Riverpod(keepAlive: true)
 class ActiveInstance extends _$ActiveInstance {
@@ -20,6 +23,14 @@ class ActiveInstance extends _$ActiveInstance {
   @override
   InstanceConfigSnapshot build() {
     final String configuredBaseUrl = _kFluxerBaseUrl.trim();
+    final String configuredGatewayUrl = _kFluxerGatewayUrl.trim();
+    final String gatewayUrl = configuredGatewayUrl.isNotEmpty
+        ? configuredGatewayUrl
+        : _normalizer.deriveGatewayUrl(configuredBaseUrl);
+    debugPrint(
+      '[ActiveInstance] base="$configuredBaseUrl" '
+      'gateway="$gatewayUrl" (define="$configuredGatewayUrl")',
+    );
     if (configuredBaseUrl.isNotEmpty) {
       // Derive the gateway URL explicitly: without this the connection falls
       // back to swapping an `api.` host prefix, which never matches
@@ -27,7 +38,7 @@ class ActiveInstance extends _$ActiveInstance {
       // splash screen) hanging forever.
       return InstanceConfigSnapshot(
         apiBaseUrl: configuredBaseUrl,
-        gatewayUrl: _normalizer.deriveGatewayUrl(configuredBaseUrl),
+        gatewayUrl: gatewayUrl,
         displayDomain: _normalizer.extractDisplayDomain(configuredBaseUrl),
       );
     }
