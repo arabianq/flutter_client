@@ -21,9 +21,13 @@ class ActiveInstance extends _$ActiveInstance {
   InstanceConfigSnapshot build() {
     final String configuredBaseUrl = _kFluxerBaseUrl.trim();
     if (configuredBaseUrl.isNotEmpty) {
+      // Derive the gateway URL explicitly: without this the connection falls
+      // back to swapping an `api.` host prefix, which never matches
+      // self-hosted single-domain instances and leaves the gateway (and the
+      // splash screen) hanging forever.
       return InstanceConfigSnapshot(
         apiBaseUrl: configuredBaseUrl,
-        gatewayUrl: '',
+        gatewayUrl: _normalizer.deriveGatewayUrl(configuredBaseUrl),
         displayDomain: _normalizer.extractDisplayDomain(configuredBaseUrl),
       );
     }

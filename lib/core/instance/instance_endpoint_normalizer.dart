@@ -58,6 +58,28 @@ class InstanceEndpointNormalizer {
     }
   }
 
+  /// Derives the gateway WebSocket URL from an API endpoint:
+  /// - `https://instance.tld/api` (self-hosted) -> `wss://instance.tld/gateway`
+  /// - `https://api.fluxer.app[/v1]` (official) -> `wss://gateway.fluxer.app`
+  ///
+  /// Self-hosted instances expose the gateway on the same domain under
+  /// `/gateway` (there is no `api.` host prefix to swap), so this mirrors
+  /// the `gateway` value their `/.well-known/fluxer` reports.
+  String deriveGatewayUrl(String apiEndpoint) {
+    try {
+      final Uri url = Uri.parse(apiEndpoint);
+      final String scheme = url.scheme == 'http' ? 'ws' : 'wss';
+      final String host = url.host.toLowerCase();
+      if (host.startsWith('api.')) {
+        return '$scheme://gateway.${host.substring(4)}';
+      }
+      final String path = url.path.replaceAll(_apiPathSuffixPattern, '');
+      return url.replace(scheme: scheme, path: '$path/gateway').toString();
+    } on FormatException {
+      return apiEndpoint;
+    }
+  }
+
   bool isOfficialInstanceInput(String input) {
     final String trimmed = input.trim();
     if (trimmed.isEmpty) {
