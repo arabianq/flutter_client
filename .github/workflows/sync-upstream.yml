@@ -1,0 +1,32 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    # Запуск каждый день в 04:00 UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync with fluxerapp/flutter_client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: canary
+          fetch-depth: 0
+
+      - name: Sync with upstream
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          upstream_sync_repo: fluxerapp/flutter_client
+          upstream_sync_branch: canary
+          target_sync_branch: canary
+          target_branch_push_args: '--force'
+          shallow_history: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
