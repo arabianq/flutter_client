@@ -48,13 +48,15 @@
   </Product>
 
   <Fragment>
-    <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="$(var.AppName)" />
-    </StandardDirectory>
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="AppProgramMenuFolder" Name="$(var.AppName)" />
-    </StandardDirectory>
-    <StandardDirectory Id="DesktopFolder" />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles6432Folder">
+        <Directory Id="INSTALLFOLDER" Name="$(var.AppName)" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="AppProgramMenuFolder" Name="$(var.AppName)" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
   </Fragment>
 
   <Fragment>

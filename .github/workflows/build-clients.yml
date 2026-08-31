@@ -92,20 +92,20 @@ jobs:
           convert assets/images/app_icon.png -resize 512x512 "$ICON" \
             2>/dev/null || cp assets/images/app_icon.png "$ICON"
 
-          # deb + rpm via fpm.
+          # deb + rpm via fpm (packages land inside pkgroot, move them out).
           sudo gem install fpm --no-document
           (cd pkgroot && fpm -s dir -t deb -n "$PKG_NAME" -v "$VERSION" -a amd64 \
             --description "$APP_NAME - Fluxer chat client" \
             --url "https://chat.wayg.su" --license "AGPL-3.0" \
             --depends "libgtk-3-0" --depends "libmpv2 | libmpv1" .)
-          mv "${PKG_NAME}_${VERSION}_amd64.deb" "$BASE-linux-amd64.deb"
+          mv "pkgroot/${PKG_NAME}_${VERSION}_amd64.deb" "$BASE-linux-amd64.deb"
 
           (cd pkgroot && fpm -s dir -t rpm -n "$PKG_NAME" -v "$VERSION" -a x86_64 \
             --rpm-os linux \
             --description "$APP_NAME - Fluxer chat client" \
             --url "https://chat.wayg.su" --license "AGPL-3.0" \
             --depends "gtk3" --depends "mpv-libs" .)
-          mv "${PKG_NAME}-${VERSION}.x86_64.rpm" "$BASE-linux-x86_64.rpm"
+          mv "pkgroot/${PKG_NAME}-${VERSION}.x86_64.rpm" "$BASE-linux-x86_64.rpm"
 
           # AppImage.
           rm -rf AppDir
