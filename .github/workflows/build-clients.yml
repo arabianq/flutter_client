@@ -98,14 +98,14 @@ jobs:
             --description "$APP_NAME - Fluxer chat client" \
             --url "https://chat.wayg.su" --license "AGPL-3.0" \
             --depends "libgtk-3-0" --depends "libmpv2 | libmpv1" \
-            -p "../../$BASE-linux-amd64.deb" .)
+            -p "../$BASE-linux-amd64.deb" .)
 
           (cd pkgroot && fpm -s dir -t rpm -n "$PKG_NAME" -v "$VERSION" -a x86_64 \
             --rpm-os linux \
             --description "$APP_NAME - Fluxer chat client" \
             --url "https://chat.wayg.su" --license "AGPL-3.0" \
             --depends "gtk3" --depends "mpv-libs" \
-            -p "../../$BASE-linux-x86_64.rpm" .)
+            -p "../$BASE-linux-x86_64.rpm" .)
 
           # AppImage.
           rm -rf AppDir
@@ -114,6 +114,10 @@ jobs:
             "AppDir/usr/share/$BINARY_NAME" AppDir/usr/bin
           cp -R "$BUNDLE/." "AppDir/usr/share/$BINARY_NAME/"
           cp "pkgroot/usr/share/applications/$BINARY_NAME.desktop" AppDir/usr/share/applications/
+          # New appimagetool requires a *.desktop file in the AppDir root
+          # (it searches non-recursively); keep the usr/share copy for
+          # desktop integration per the AppImage spec.
+          cp "pkgroot/usr/share/applications/$BINARY_NAME.desktop" "AppDir/$BINARY_NAME.desktop"
           cp "$ICON" "AppDir/usr/share/icons/hicolor/512x512/apps/"
           cp "$ICON" "AppDir/$BINARY_NAME.png"
           ln -sf "$BINARY_NAME.png" AppDir/.DirIcon
@@ -123,7 +127,7 @@ jobs:
           curl -sL -o appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool.AppImage
-          ./appimagetool.AppImage --appimage-extract-and-run AppDir "$BASE-linux-x86_64.AppImage"
+          ARCH=x86_64 ./appimagetool.AppImage --appimage-extract-and-run AppDir "$BASE-linux-x86_64.AppImage"
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
