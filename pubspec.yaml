@@ -115,6 +115,8 @@ dependency_overrides:
       url: https://github.com/wangqiang1588/flutter_inappwebview
       path: flutter_inappwebview_ios
       ref: fc33a449b9290b127a471808e22eb7b0edebad92
+  flutter_inappwebview_linux:
+    path: packages/flutter_inappwebview_linux_stub
   flutter_inappwebview_macos:
     git:
       url: https://github.com/wangqiang1588/flutter_inappwebview

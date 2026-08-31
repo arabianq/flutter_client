@@ -1,0 +1,20 @@
+name: flutter_inappwebview_linux
+description: Stub implementation of flutter_inappwebview for Linux desktop.
+version: 1.0.0+fluxer
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_inappwebview_platform_interface: ^1.2.0-beta.3
+
+flutter:
+  plugin:
+    implements: flutter_inappwebview
+    platforms:
+      linux:
+        pluginClass: InAppWebViewLinuxPlugin
