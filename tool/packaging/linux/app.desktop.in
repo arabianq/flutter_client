@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=@APP_NAME@
+GenericName=Chat Client
+Comment=@APP_NAME@ — Fluxer client
+Exec=@BINARY_NAME@
+Icon=@BINARY_NAME@
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+StartupWMClass=@APP_ID@
+StartupNotify=true

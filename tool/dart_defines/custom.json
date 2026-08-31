@@ -1,4 +1,7 @@
 {
   "APP_ENVIRONMENT": "stable",
-  "FLUXER_BASE_URL": "https://chat.wayg.su/api"
+  "FLUXER_BASE_URL": "https://chat.wayg.su/api",
+  "APP_NAME": "WAYG Chat",
+  "APP_FILE_BASE": "WaygChat",
+  "APP_ID": "su.wayg.chat"
 }

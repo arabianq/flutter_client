@@ -2,12 +2,18 @@
 cmake_minimum_required(VERSION 3.13)
 project(runner LANGUAGES CXX)
 
+# Branding overrides are read from tool/dart_defines/custom.json so the app
+# can be renamed (and installed in parallel with the original client) from a
+# single file. See tool/branding.cmake; falls back to upstream defaults.
+include("${CMAKE_CURRENT_SOURCE_DIR}/../tool/branding.cmake")
+wayg_read_branding("${CMAKE_CURRENT_SOURCE_DIR}/../tool/dart_defines/custom.json")
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "fluxer_app")
+set(BINARY_NAME "${BRANDING_BINARY_NAME}")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.parakeetsoft.fluxer_app")
+set(APPLICATION_ID "${BRANDING_APP_ID}")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

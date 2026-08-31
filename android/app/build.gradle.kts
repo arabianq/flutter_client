@@ -22,6 +22,23 @@ if (requestedTasks.contains("fcm")) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// Branding overrides parsed from the shared dart-define file, so the app can
+// be renamed (and installed in parallel with the original client) from a
+// single place. Falls back to the upstream defaults when absent.
+val customDefinesFile = rootProject.file("../tool/dart_defines/custom.json")
+val customDefines: Map<String, String> = if (customDefinesFile.exists()) {
+    Regex("\"([A-Za-z0-9_]+)\"\\s*:\\s*\"([^\"]*)\"")
+        .findAll(customDefinesFile.readText())
+        .associate { it.groupValues[1] to it.groupValues[2] }
+} else {
+    emptyMap()
+}
+
+fun customDefine(key: String, fallback: String): String = customDefines[key] ?: fallback
+
+val appDisplayName = customDefine("APP_NAME", "Fluxer")
+val applicationIdBase = customDefine("APP_ID", "com.fluxer")
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasKeystoreProperties = keystorePropertiesFile.exists()
@@ -57,13 +74,13 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.fluxer"
+        applicationId = applicationIdBase
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
-        manifestPlaceholders["appLabel"] = "Fluxer"
+        manifestPlaceholders["appLabel"] = appDisplayName
         manifestPlaceholders["buildEnvironment"] = "stable"
         manifestPlaceholders["pushProvider"] = "fcm"
     }
@@ -73,17 +90,17 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".canary"
             versionNameSuffix = "-canary"
-            manifestPlaceholders["appLabel"] = "Fluxer Canary"
+            manifestPlaceholders["appLabel"] = "$appDisplayName Canary"
             manifestPlaceholders["buildEnvironment"] = "canary"
         }
         create("stable") {
             dimension = "environment"
-            manifestPlaceholders["appLabel"] = "Fluxer"
+            manifestPlaceholders["appLabel"] = appDisplayName
             manifestPlaceholders["buildEnvironment"] = "stable"
         }
         create("beta") {
             dimension = "environment"
-            manifestPlaceholders["appLabel"] = "Fluxer Beta"
+            manifestPlaceholders["appLabel"] = "$appDisplayName Beta"
             manifestPlaceholders["buildEnvironment"] = "beta"
         }
         create("fcm") {

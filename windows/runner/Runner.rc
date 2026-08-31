@@ -9,6 +9,7 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "winres.h"
+#include "app_name.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -90,12 +91,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.parakeetsoft" "\0"
-            VALUE "FileDescription", "fluxer_app" "\0"
+            VALUE "FileDescription", APP_NAME_TEXT_A "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "fluxer_app" "\0"
+            VALUE "InternalName", APP_FILE_NAME_A "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.parakeetsoft. All rights reserved." "\0"
-            VALUE "OriginalFilename", "fluxer_app.exe" "\0"
-            VALUE "ProductName", "fluxer_app" "\0"
+            VALUE "OriginalFilename", APP_FILE_NAME_A "\0"
+            VALUE "ProductName", APP_NAME_TEXT_A "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

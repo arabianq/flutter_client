@@ -20,6 +20,19 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Read branding
+        id: brand
+        run: |
+          APP_NAME=$(jq -r '.APP_NAME // "Fluxer"' tool/dart_defines/custom.json)
+          APP_ID=$(jq -r '.APP_ID // "com.fluxer"' tool/dart_defines/custom.json)
+          FILE_BASE=$(jq -r '.APP_FILE_BASE // ""' tool/dart_defines/custom.json)
+          if [ -z "$FILE_BASE" ]; then FILE_BASE=$(printf '%s' "$APP_NAME" | tr -d ' '); fi
+          VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
+          echo "file_base=$FILE_BASE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -47,16 +60,81 @@ jobs:
       - name: Build Linux Release
         run: flutter build linux --release --dart-define-from-file=tool/dart_defines/custom.json
 
-      - name: Package Linux Artifact
+      - name: Package Linux artifacts (tar.gz / deb / rpm / AppImage)
+        env:
+          APP_NAME: ${{ steps.brand.outputs.app_name }}
+          APP_ID: ${{ steps.brand.outputs.app_id }}
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+          VERSION: ${{ steps.brand.outputs.version }}
         run: |
-          cd build/linux/x64/release/bundle
-          tar -czf ../../../../../Fluxer-Linux-x86_64.tar.gz .
+          set -euo pipefail
+          BUNDLE=build/linux/x64/release/bundle
+          BINARY_NAME=$(printf '%s' "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/_+$//')
+          PKG_NAME=${BINARY_NAME//_/-}
+          BASE="$FILE_BASE-$VERSION"
+
+          # Plain archive from the raw bundle.
+          tar -czf "$BASE-linux-x86_64.tar.gz" -C "$BUNDLE" .
+
+          # Staging tree shared by deb/rpm (installs to /opt + /usr).
+          rm -rf pkgroot
+          mkdir -p "pkgroot/opt/$PKG_NAME" pkgroot/usr/bin \
+            pkgroot/usr/share/applications \
+            pkgroot/usr/share/icons/hicolor/512x512/apps
+          cp -R "$BUNDLE/." "pkgroot/opt/$PKG_NAME/"
+          ln -s "/opt/$PKG_NAME/$BINARY_NAME" "pkgroot/usr/bin/$BINARY_NAME"
+          sed -e "s|@APP_NAME@|$APP_NAME|g" \
+              -e "s|@BINARY_NAME@|$BINARY_NAME|g" \
+              -e "s|@APP_ID@|$APP_ID|g" \
+            tool/packaging/linux/app.desktop.in \
+            > "pkgroot/usr/share/applications/$BINARY_NAME.desktop"
+          ICON="pkgroot/usr/share/icons/hicolor/512x512/apps/$BINARY_NAME.png"
+          convert assets/images/app_icon.png -resize 512x512 "$ICON" \
+            2>/dev/null || cp assets/images/app_icon.png "$ICON"
+
+          # deb + rpm via fpm.
+          sudo gem install fpm --no-document
+          (cd pkgroot && fpm -s dir -t deb -n "$PKG_NAME" -v "$VERSION" -a amd64 \
+            --description "$APP_NAME - Fluxer chat client" \
+            --url "https://chat.wayg.su" --license "AGPL-3.0" \
+            --depends "libgtk-3-0" --depends "libmpv2 | libmpv1" .)
+          mv "${PKG_NAME}_${VERSION}_amd64.deb" "$BASE-linux-amd64.deb"
+
+          (cd pkgroot && fpm -s dir -t rpm -n "$PKG_NAME" -v "$VERSION" -a x86_64 \
+            --rpm-os linux \
+            --description "$APP_NAME - Fluxer chat client" \
+            --url "https://chat.wayg.su" --license "AGPL-3.0" \
+            --depends "gtk3" --depends "mpv-libs" .)
+          mv "${PKG_NAME}-${VERSION}.x86_64.rpm" "$BASE-linux-x86_64.rpm"
+
+          # AppImage.
+          rm -rf AppDir
+          mkdir -p "AppDir/usr/share/applications" \
+            "AppDir/usr/share/icons/hicolor/512x512/apps" \
+            "AppDir/usr/share/$BINARY_NAME" AppDir/usr/bin
+          cp -R "$BUNDLE/." "AppDir/usr/share/$BINARY_NAME/"
+          cp "pkgroot/usr/share/applications/$BINARY_NAME.desktop" AppDir/usr/share/applications/
+          cp "$ICON" "AppDir/usr/share/icons/hicolor/512x512/apps/"
+          cp "$ICON" "AppDir/$BINARY_NAME.png"
+          ln -sf "$BINARY_NAME.png" AppDir/.DirIcon
+          printf '#!/bin/sh\nHERE=$(dirname "$(readlink -f "$0")")\nexec "$HERE/usr/share/%s/%s" "$@"\n' \
+            "$BINARY_NAME" "$BINARY_NAME" > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          curl -sL -o appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          ./appimagetool.AppImage --appimage-extract-and-run AppDir "$BASE-linux-x86_64.AppImage"
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Fluxer-Linux-x86_64
-          path: Fluxer-Linux-x86_64.tar.gz
+          name: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-linux-x86_64
+          path: |
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-linux-x86_64.tar.gz
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-linux-amd64.deb
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-linux-x86_64.rpm
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-linux-x86_64.AppImage
+          if-no-files-found: error
 
   build-windows:
     name: Build Windows Desktop
@@ -66,6 +144,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Read branding
+        id: brand
+        shell: pwsh
+        run: |
+          $defines = Get-Content "tool/dart_defines/custom.json" -Raw | ConvertFrom-Json
+          $appName = if ($defines.APP_NAME) { $defines.APP_NAME } else { "Fluxer" }
+          $fileBase = if ($defines.APP_FILE_BASE) { $defines.APP_FILE_BASE } else { ($appName -replace '\s', '') }
+          $pubspec = Get-Content "pubspec.yaml" -Raw
+          $version = [regex]::Match($pubspec, '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)').Groups[1].Value
+          "app_name=$appName" >> $env:GITHUB_OUTPUT
+          "file_base=$fileBase" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -84,16 +175,45 @@ jobs:
           CL: "/D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
         run: flutter build windows --release --dart-define-from-file=tool/dart_defines/custom.json
 
-      - name: Package Windows Artifact
+      - name: Install WiX Toolset
         shell: pwsh
         run: |
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "Fluxer-Windows-x64.zip"
+          choco install wixtoolset -y --no-progress
+          echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" >> $env:GITHUB_PATH
+
+      - name: Package Windows artifacts (zip / msi)
+        shell: pwsh
+        env:
+          APP_NAME: ${{ steps.brand.outputs.app_name }}
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+          VERSION: ${{ steps.brand.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $release = "build\windows\x64\runner\Release"
+          $base = "$env:FILE_BASE-$env:VERSION"
+          $binaryName = ($env:APP_NAME.ToLower() -replace '[^a-z0-9]+', '_').Trim('_')
+
+          Compress-Archive -Path "$release\*" -DestinationPath "$base-windows-x64.zip"
+
+          New-Item -ItemType Directory -Force -Path msi | Out-Null
+          heat dir $release -dr INSTALLFOLDER -var var.SourceDir -cg AppFiles `
+            -gg -srd -scom -sreg -sfrag -out msi\files.wxs
+          candle -arch x64 `
+            -dAppName="$env:APP_NAME" -dAppVersion="$env:VERSION" `
+            -dBinaryName="$binaryName" -dSourceDir="$release" `
+            -out msi\app.wixobj tool\packaging\windows\app.wxs
+          candle -arch x64 -dSourceDir="$release" -out msi\files.wixobj msi\files.wxs
+          light -out "$base-windows-x64.msi" -ext WixUIExtension -sval `
+            msi\app.wixobj msi\files.wixobj
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Fluxer-Windows-x64
-          path: Fluxer-Windows-x64.zip
+          name: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-windows-x64
+          path: |
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-windows-x64.zip
+            ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-windows-x64.msi
+          if-no-files-found: error
 
   build-macos:
     name: Build macOS Desktop
@@ -103,6 +223,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Read branding
+        id: brand
+        run: |
+          APP_NAME=$(jq -r '.APP_NAME // "Fluxer"' tool/dart_defines/custom.json)
+          APP_ID=$(jq -r '.APP_ID // "com.fluxer"' tool/dart_defines/custom.json)
+          FILE_BASE=$(jq -r '.APP_FILE_BASE // ""' tool/dart_defines/custom.json)
+          if [ -z "$FILE_BASE" ]; then FILE_BASE=$(printf '%s' "$APP_NAME" | tr -d ' '); fi
+          VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
+          echo "file_base=$FILE_BASE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -116,6 +249,20 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
 
+      - name: Apply branding
+        env:
+          APP_NAME: ${{ steps.brand.outputs.app_name }}
+          APP_ID: ${{ steps.brand.outputs.app_id }}
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+        run: |
+          set -euo pipefail
+          sed -i '' "s/^PRODUCT_NAME = .*/PRODUCT_NAME = $FILE_BASE/" macos/Runner/Configs/AppInfo.xcconfig
+          sed -i '' "s/^PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = $APP_ID/" macos/Runner/Configs/AppInfo.xcconfig
+          sed -i '' "s/INFOPLIST_KEY_CFBundleDisplayName = Fluxer;/INFOPLIST_KEY_CFBundleDisplayName = \"$APP_NAME\";/" macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/INFOPLIST_KEY_CFBundleDisplayName = \"Fluxer Canary\";/INFOPLIST_KEY_CFBundleDisplayName = \"$APP_NAME Canary\";/" macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/INFOPLIST_KEY_CFBundleDisplayName = \"Fluxer Beta\";/INFOPLIST_KEY_CFBundleDisplayName = \"$APP_NAME Beta\";/" macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s|<string>Fluxer</string>|<string>$APP_NAME</string>|" macos/Runner/Info.plist
+
       - name: Configure Ad-Hoc Signing
         run: |
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' macos/Runner.xcodeproj/project.pbxproj
@@ -125,16 +272,28 @@ jobs:
       - name: Build macOS Release
         run: flutter build macos --release --dart-define-from-file=tool/dart_defines/custom.json
 
-      - name: Package macOS Artifact
+      - name: Package macOS artifact (dmg)
+        env:
+          APP_NAME: ${{ steps.brand.outputs.app_name }}
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+          VERSION: ${{ steps.brand.outputs.version }}
         run: |
-          cd build/macos/Build/Products/Release
-          zip -r ../../../../../Fluxer-macOS.zip .
+          set -euo pipefail
+          APP="build/macos/Build/Products/Release/$FILE_BASE.app"
+          test -d "$APP"
+          BASE="$FILE_BASE-$VERSION-macos-arm64"
+          rm -rf dmg-stage "$BASE.dmg"
+          mkdir dmg-stage
+          cp -R "$APP" dmg-stage/
+          ln -s /Applications dmg-stage/Applications
+          hdiutil create -volname "$APP_NAME" -srcfolder dmg-stage -ov -format UDZO "$BASE.dmg"
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Fluxer-macOS
-          path: Fluxer-macOS.zip
+          name: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-macos-arm64
+          path: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-macos-arm64.dmg
+          if-no-files-found: error
 
   build-android:
     name: Build Android APK
@@ -144,6 +303,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Read branding
+        id: brand
+        run: |
+          APP_NAME=$(jq -r '.APP_NAME // "Fluxer"' tool/dart_defines/custom.json)
+          FILE_BASE=$(jq -r '.APP_FILE_BASE // ""' tool/dart_defines/custom.json)
+          if [ -z "$FILE_BASE" ]; then FILE_BASE=$(printf '%s' "$APP_NAME" | tr -d ' '); fi
+          VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "file_base=$FILE_BASE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -169,13 +339,23 @@ jobs:
             --flavor stableUnifiedpush \
             --dart-define-from-file=tool/dart_defines/custom.json \
             --dart-define=PUSH_PROVIDER=unifiedpush
-          cp build/app/outputs/flutter-apk/app-stable-unifiedpush-release.apk Fluxer-Android.apk || cp build/app/outputs/flutter-apk/*.apk Fluxer-Android.apk
+
+      - name: Package Android artifact (apk)
+        env:
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+          VERSION: ${{ steps.brand.outputs.version }}
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-stable-unifiedpush-release.apk"
+          [ -f "$APK" ] || APK=$(ls build/app/outputs/flutter-apk/*-release.apk | head -n 1)
+          cp "$APK" "$FILE_BASE-$VERSION-android-universal.apk"
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Fluxer-Android
-          path: Fluxer-Android.apk
+          name: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-android
+          path: ${{ steps.brand.outputs.file_base }}-${{ steps.brand.outputs.version }}-android-universal.apk
+          if-no-files-found: error
 
   publish-release:
     name: Publish Release
@@ -183,31 +363,69 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/canary' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read branding
+        id: brand
+        run: |
+          APP_NAME=$(jq -r '.APP_NAME // "Fluxer"' tool/dart_defines/custom.json)
+          FILE_BASE=$(jq -r '.APP_FILE_BASE // ""' tool/dart_defines/custom.json)
+          if [ -z "$FILE_BASE" ]; then FILE_BASE=$(printf '%s' "$APP_NAME" | tr -d ' '); fi
+          VERSION=$(grep -E '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "file_base=$FILE_BASE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-files
           merge-multiple: true
 
+      - name: Generate release notes
+        env:
+          APP_NAME: ${{ steps.brand.outputs.app_name }}
+          FILE_BASE: ${{ steps.brand.outputs.file_base }}
+          VERSION: ${{ steps.brand.outputs.version }}
+        run: |
+          set -euo pipefail
+          REPO="https://github.com/${{ github.repository }}"
+          F_APPIMAGE="$FILE_BASE-$VERSION-linux-x86_64.AppImage"
+          F_TARGZ="$FILE_BASE-$VERSION-linux-x86_64.tar.gz"
+          F_DEB="$FILE_BASE-$VERSION-linux-amd64.deb"
+          F_RPM="$FILE_BASE-$VERSION-linux-x86_64.rpm"
+          F_MSI="$FILE_BASE-$VERSION-windows-x64.msi"
+          F_ZIP="$FILE_BASE-$VERSION-windows-x64.zip"
+          F_DMG="$FILE_BASE-$VERSION-macos-arm64.dmg"
+          F_APK="$FILE_BASE-$VERSION-android-universal.apk"
+          url() { echo "$REPO/releases/latest/download/$1"; }
+          cat > body.md <<EOF
+          Автоматическая сборка **$APP_NAME** — клиента Fluxer, настроенная на сервер **chat.wayg.su**.
+
+          Устанавливается параллельно с оригинальным клиентом Fluxer: у неё отдельные название, ярлыки и идентификатор приложения.
+
+          ### Быстрые ссылки
+          * **Windows (MSI):** [${F_MSI}]($(url "$F_MSI"))
+          * **Linux (AppImage):** [${F_APPIMAGE}]($(url "$F_APPIMAGE"))
+          * **macOS, Apple Silicon (DMG):** [${F_DMG}]($(url "$F_DMG"))
+          * **Android (APK):** [${F_APK}]($(url "$F_APK"))
+
+          ### Все файлы
+          * **Linux:** [${F_DEB}]($(url "$F_DEB")) · [${F_RPM}]($(url "$F_RPM")) · [${F_TARGZ}]($(url "$F_TARGZ")) · [${F_APPIMAGE}]($(url "$F_APPIMAGE"))
+          * **Windows:** [${F_MSI}]($(url "$F_MSI")) · [${F_ZIP}]($(url "$F_ZIP"))
+          * **macOS:** [${F_DMG}]($(url "$F_DMG"))
+          * **Android:** [${F_APK}]($(url "$F_APK"))
+          EOF
+
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "Fluxer Client (Latest Build)"
-          body: |
-            Автоматическая сборка клиента Fluxer, настроенная на сервер **chat.wayg.su**.
-            
-            ### Доступные файлы для скачивания:
-            * **Windows:** `Fluxer-Windows-x64.zip`
-            * **Linux:** `Fluxer-Linux-x86_64.tar.gz`
-            * **macOS:** `Fluxer-macOS.zip`
-            * **Android:** `Fluxer-Android.apk`
+          name: "${{ steps.brand.outputs.app_name }} (Latest Build)"
+          body_path: body.md
           draft: false
           prerelease: false
-          files: |
-            release-files/Fluxer-Linux-x86_64.tar.gz
-            release-files/Fluxer-Windows-x64.zip
-            release-files/Fluxer-macOS.zip
-            release-files/Fluxer-Android.apk
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

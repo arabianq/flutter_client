@@ -9,6 +9,10 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
 };
 
+#ifndef APP_TITLE
+#define APP_TITLE "fluxer_app"
+#endif
+
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
@@ -22,7 +26,7 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  gtk_window_set_title(window, "fluxer_app");
+  gtk_window_set_title(window, APP_TITLE);
 
   // Use a zero-height CSD titlebar to prevent the Wayland compositor
   // (e.g. KDE/KWin) from adding server-side decorations.

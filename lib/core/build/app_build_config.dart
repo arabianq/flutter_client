@@ -9,6 +9,11 @@ class AppBuildConfig {
     defaultValue: 'stable',
   );
   // ignore: do_not_use_environment -- compile-time build flavor config
+  static const String _appNameValue = String.fromEnvironment(
+    'APP_NAME',
+    defaultValue: 'Fluxer',
+  );
+  // ignore: do_not_use_environment -- compile-time build flavor config
   static const String _pushProviderValue = String.fromEnvironment(
     'PUSH_PROVIDER',
     defaultValue: 'apns',
@@ -61,6 +66,10 @@ class AppBuildConfig {
   static bool get isCanary => environment == AppBuildEnvironment.canary;
   static bool get isBeta => environment == AppBuildEnvironment.beta;
   static bool get isStable => environment == AppBuildEnvironment.stable;
+
+  /// Custom display name of this client build (e.g. "WAYG Chat"), see
+  /// tool/dart_defines/custom.json.
+  static String get appName => _appNameValue;
 
   /// Value for `RegisterMobileDeviceRequest.appId` / mobile-devices API.
   static String get mobilePushAppId {

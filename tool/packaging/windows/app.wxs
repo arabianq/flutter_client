@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WiX v3 installer definition for the Windows build.
+
+  Vars expected from candle:
+    -dAppName="WAYG Chat"
+    -dAppVersion="1.0.0"
+    -dBinaryName="wayg_chat"
+    -dSourceDir="path\to\build\windows\x64\runner\Release"
+
+  The file payload (files.wxs) is generated with heat.exe:
+    heat dir "%SourceDir%" -dr INSTALLFOLDER -var var.SourceDir -cg AppFiles -gg -srd -scom -sreg -sfrag -out files.wxs
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="$(var.AppName)"
+    Language="1033"
+    Codepage="65001"
+    Version="$(var.AppVersion)"
+    Manufacturer="$(var.AppName)"
+    UpgradeCode="8D5B2A61-4E17-4E23-9B44-6F8C2D0AF3C1">
+
+    <Package
+      InstallerVersion="400"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Description="$(var.AppName) installer" />
+
+    <MajorUpgrade
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.exe" SourceFile="$(var.SourceDir)\$(var.BinaryName).exe" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.exe" />
+
+    <UI>
+      <UIRef Id="WixUI_Minimal" />
+    </UI>
+
+    <Feature Id="Main" Title="$(var.AppName)" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+  </Product>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="$(var.AppName)" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramMenuFolder" Name="$(var.AppName)" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Guid="C7489702-CF73-40F0-A0FD-E54EBFEF93A1" Directory="AppProgramMenuFolder">
+      <Shortcut
+        Id="StartMenuAppShortcut"
+        Name="$(var.AppName)"
+        Description="$(var.AppName)"
+        Target="[INSTALLFOLDER]$(var.BinaryName).exe"
+        WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveAppProgramMenu" On="uninstall" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\$(var.AppName)"
+        Name="StartMenuShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Guid="E3234B97-72D2-4FFB-9932-4C3C7BE7104B" Directory="DesktopFolder">
+      <Shortcut
+        Id="DesktopAppShortcut"
+        Name="$(var.AppName)"
+        Description="$(var.AppName)"
+        Target="[INSTALLFOLDER]$(var.BinaryName).exe"
+        WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\$(var.AppName)"
+        Name="DesktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>
