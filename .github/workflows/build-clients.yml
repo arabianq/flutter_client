@@ -30,6 +30,7 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libwebkit2gtk-4.0-dev libwpewebkit-1.0-dev libwpebackend-fdo-1.0-dev \
             libsoup-3.0-dev libsoup2.4-dev \
+            libmpv-dev mpv libpulse-dev \
             libsecret-1-dev libjsoncpp-dev
 
       - name: Setup Flutter
